@@ -112,10 +112,41 @@ chatIO.on('connection', (socket) => {
     });
 
     // Manejar evento para unirse a una sala
-    socket.on('join_room', (roomId: string) => {
+    socket.on('join_room', (data: { roomId: string; name: string }) => {
+        const { roomId, name } = data;
         socket.join(roomId);
-        console.log(`Usuario con ID: ${socket.id} se unió a la sala: ${roomId}`);
+        console.log(`Usuario ${name} (ID: ${socket.id}) se unió a la sala: ${roomId}`);
+
+        const systemMessage: ChatMessage = {
+            room: roomId,
+            author: 'Sistema',
+            message: `${name} ha entrado a la sala.`,
+            time: new Date().toISOString()
+        };
+
+        // Emitir a los demás en la sala
+        socket.to(roomId).emit('receive_message', systemMessage);
+
+        // Emitir también al propio usuario si quieres que lo vea
+        socket.emit('receive_message', {
+            ...systemMessage,
+            message: `Te has unido a la sala ${roomId}.`,
+        });
     });
+
+    // Manejar evento para abandonar una sala
+    socket.on('leave_room', ({ roomId, name }) => {
+    socket.leave(roomId);
+    const systemMessage = {
+        room: roomId,
+        author: 'Sistema',
+        message: `${name} ha salido de la sala.`,
+        time: new Date().toLocaleTimeString(),
+    };
+    socket.to(roomId).emit('receive_message', systemMessage);
+    console.log(`Usuario ${name} salió de la sala: ${roomId}`);
+    });
+
 
     // Manejar evento para enviar un mensaje
     socket.on('send_message', (data: ChatMessage) => {
@@ -145,9 +176,13 @@ app.get('/', (req, res) => {
     res.send('Welcome to my API');
 });
 
+
+const MONGODB_URI = 'mongodb+srv://David:Claudia1309@cluster0.yylqd.mongodb.net/Seminaris?retryWrites=true&w=majority&appName=Cluster0';
+
 // Conexión a MongoDB
 mongoose
-    .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/seminarioExpress')
+//    .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/seminarioExpress')
+    .connect(MONGODB_URI)
     .then(() => console.log('Connected to DB'))
     .catch((error) => console.error('DB Connection Error:', error));
 
